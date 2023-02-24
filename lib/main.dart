@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:todo_list/models/todo.dart';
+import 'package:todo_list/repositories/todo_repository.dart';
 
 void main() {
   runApp(const MyApp());
@@ -35,9 +38,11 @@ class _TodoAppState extends State<TodoApp> {
   final TextEditingController currentTaskTitle = TextEditingController();
   final TextEditingController currentTaskDescription = TextEditingController();
 
-  List<Map> todo_list = [];
+  final TodoRepository todoRepository = TodoRepository();
 
-  DateTime currentDay = DateTime.now();
+  List<Todo> todo_list = [];
+
+  DateTime currentDay = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1);
 
   List<String> mounths_pt = [
     "Janeiro",
@@ -64,29 +69,30 @@ class _TodoAppState extends State<TodoApp> {
     "Sáb"
   ];
 
-  void addTask(String title, String time, String description) {
-    todo_list.add({
-      "title": title,
-      "time": time.toString(),
-      "description": description,
+  void sortTasks() {
+    todo_list.sort(
+      (a, b) {
+        DateTime dt1 = DateTime.parse(a.dateTime.toString());
+        DateTime dt2 = DateTime.parse(b.dateTime.toString());
+        return dt1.compareTo(dt2);
+      },
+    );
+    todoRepository.saveTodoList(todo_list);
+  }
+
+  @override
+  void initState(){
+    super.initState();
+
+    todoRepository.getTodoList().then((value) {
+      setState(() {
+        todo_list = value;
+      });
     });
   }
 
-  void removeTask(int index) {
-    todo_list.removeAt(index);
-  }
-
-  void sortTasks() {
-    todo_list.sort((a, b) {
-      DateTime dt1 = DateTime.parse(
-          "${DateTime.now().year}-${(DateTime.now().month).toString().padLeft(2, "0")}-${(DateTime.now().day).toString().padLeft(2, "0")} ${todo_list[0]["time"]}:00");
-      DateTime dt2 = DateTime.parse(
-          "${DateTime.now().year}-${(DateTime.now().month).toString().padLeft(2, "0")}-${(DateTime.now().day).toString().padLeft(2, "0")} ${todo_list[1]["time"]}:00");
-      return dt1.compareTo(dt2);
-    },);
-  }
-
   //purple_color = Color(0xff610bd9)
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,7 +139,7 @@ class _TodoAppState extends State<TodoApp> {
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                (DateTime.now().day + day == DateTime.now().day)
+                                (DateTime.now().day + day == currentDay.day)
                                     ? const Color(0xff610bd9)
                                     : const Color(0xffE2E2E2),
                             foregroundColor: Colors.black,
@@ -141,16 +147,20 @@ class _TodoAppState extends State<TodoApp> {
                               borderRadius: BorderRadius.circular(5.0),
                               side: BorderSide(
                                   color: (DateTime.now().day + day ==
-                                          DateTime.now().day)
+                                          currentDay.day)
                                       ? const Color(0xffE2E2E2)
                                       : const Color(0xffE2E2E2),
                                   width: (DateTime.now().day + day ==
-                                          DateTime.now().day)
+                                          currentDay.day)
                                       ? 2
                                       : 0),
                             ),
                           ),
-                          onPressed: () {},
+                          onPressed: () {
+                            setState(() {
+                              currentDay = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + day);
+                            });
+                          },
                           child: Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -164,7 +174,7 @@ class _TodoAppState extends State<TodoApp> {
                                       1],
                                   style: TextStyle(
                                       color: ((DateTime.now().day + day) ==
-                                              DateTime.now().day)
+                                              currentDay.day)
                                           ? const Color(0xffE2E2E2)
                                           : const Color(0xff202020)),
                                 ),
@@ -179,7 +189,7 @@ class _TodoAppState extends State<TodoApp> {
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
                                     color: ((DateTime.now().day + day) ==
-                                            DateTime.now().day)
+                                            currentDay.day)
                                         ? const Color(0xffE2E2E2)
                                         : const Color(0xff202020),
                                   ),
@@ -224,7 +234,7 @@ class _TodoAppState extends State<TodoApp> {
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 Text(
-                                  todo_list[i]["title"],
+                                  todo_list[i].title,
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 18,
@@ -234,7 +244,7 @@ class _TodoAppState extends State<TodoApp> {
                                           : Colors.black),
                                 ),
                                 Text(
-                                  todo_list[i]["time"],
+                                  (DateFormat.Hm().format(todo_list[i].dateTime)),
                                   style: TextStyle(
                                       color: selectedTask != null &&
                                               selectedTask == i
@@ -246,7 +256,7 @@ class _TodoAppState extends State<TodoApp> {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      todo_list[i]["description"],
+                                      todo_list[i].description,
                                       style: TextStyle(
                                           color: selectedTask != null &&
                                                   selectedTask == i
@@ -306,8 +316,8 @@ class _TodoAppState extends State<TodoApp> {
                                                                       () {
                                                                     setState(
                                                                         () {
-                                                                      removeTask(
-                                                                          i);
+                                                                      todo_list.removeAt(i);
+                                                                      todoRepository.saveTodoList(todo_list);
                                                                     });
                                                                     Navigator.of(
                                                                             context)
@@ -562,13 +572,19 @@ class _TodoAppState extends State<TodoApp> {
                                           setState(
                                             () {
                                               if (currentTaskTitle.text != "") {
-                                                String selectedTaskTime =
-                                                    "${selectedAddHour.toString().padLeft(2, "0")}:${selectedAddMinute.toString().padLeft(2, "0")}";
-                                                addTask(
-                                                    currentTaskTitle.text,
-                                                    selectedTaskTime,
-                                                    currentTaskDescription
-                                                        .text);
+                                                Todo newTodo = Todo(
+                                                  title: currentTaskTitle.text,
+                                                  dateTime: DateTime.parse(
+                                                      "${DateTime.now().year}-${(DateTime.now().month).toString().padLeft(2, "0")}-${(DateTime.now().day).toString().padLeft(2, "0")} ${selectedAddHour.toString().padLeft(2, "0")}:${selectedAddMinute.toString().padLeft(2, "0")}:00"),
+                                                  description:
+                                                      currentTaskDescription
+                                                          .text,
+                                                );
+
+                                                todo_list.add(newTodo);
+
+                                                todoRepository.saveTodoList(todo_list);
+
                                                 Navigator.pop(context);
                                                 numTasks++;
                                               }
@@ -623,6 +639,7 @@ class _TodoAppState extends State<TodoApp> {
                     currentTaskTitle.clear();
                     currentTaskDescription.clear();
                     sortTasks();
+                    print(currentDay);
                   }),
                 );
               },
