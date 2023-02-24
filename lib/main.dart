@@ -42,7 +42,7 @@ class _TodoAppState extends State<TodoApp> {
 
   List<Todo> todo_list = [];
 
-  DateTime currentDay = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1);
+  DateTime currentDay = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
   List<String> mounths_pt = [
     "Janeiro",
@@ -213,6 +213,7 @@ class _TodoAppState extends State<TodoApp> {
                   scrollDirection: Axis.vertical,
                   children: [
                     for (int i = 0; i < todo_list.length; i++)
+                      if(DateFormat("dd/MM/yyyy").format(currentDay) == DateFormat("dd/MM/yyyy").format(todo_list[i].dateTime))
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 5.0),
                         child: ElevatedButton(
@@ -575,7 +576,7 @@ class _TodoAppState extends State<TodoApp> {
                                                 Todo newTodo = Todo(
                                                   title: currentTaskTitle.text,
                                                   dateTime: DateTime.parse(
-                                                      "${DateTime.now().year}-${(DateTime.now().month).toString().padLeft(2, "0")}-${(DateTime.now().day).toString().padLeft(2, "0")} ${selectedAddHour.toString().padLeft(2, "0")}:${selectedAddMinute.toString().padLeft(2, "0")}:00"),
+                                                      "${currentDay.year}-${(currentDay.month).toString().padLeft(2, "0")}-${(currentDay.day).toString().padLeft(2, "0")} ${selectedAddHour.toString().padLeft(2, "0")}:${selectedAddMinute.toString().padLeft(2, "0")}:00"),
                                                   description:
                                                       currentTaskDescription
                                                           .text,
